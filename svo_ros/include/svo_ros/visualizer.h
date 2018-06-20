@@ -38,9 +38,13 @@ public:
   typedef pcl::PointXYZI PointType;
   typedef pcl::PointCloud<PointType> PointCloud;
 
-  const std::string kWorldFrame = "world";
+  //const std::string kWorldFrame = "world";
 
   ros::NodeHandle pnh_;
+ 
+  std::string kWorldFrame;
+  std::string kCameraFrame;
+
   size_t trace_id_ = 0;
   std::string trace_dir_;
   size_t img_pub_level_;

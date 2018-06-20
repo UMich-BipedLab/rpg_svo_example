@@ -46,6 +46,8 @@ Visualizer::Visualizer(
     const ros::NodeHandle& nh_private,
     const size_t n_cameras)
   : pnh_(nh_private)
+  , kWorldFrame(vk::param<std::string>(pnh_, "world_frame_id", "world"))
+  , kCameraFrame(vk::param<std::string>(pnh_, "camera_frame_id", "cam_pos"))
   , trace_dir_(trace_dir)
   , img_pub_level_(vk::param<int>(pnh_, "publish_img_pyr_level", 0))
   , img_pub_nth_(vk::param<int>(pnh_, "publish_every_nth_img", 1))
@@ -141,7 +143,7 @@ void Visualizer::publishCameraPoses(
 {
   vk::output_helper::publishTfTransform(
         frame_bundle->at(0)->T_cam_world(), ros::Time().fromNSec(timestamp_nanoseconds),
-        "cam_pos", kWorldFrame, br_);
+        kCameraFrame, kWorldFrame, br_);
 
   for(size_t i = 0; i < frame_bundle->size(); ++i)
   {
@@ -293,7 +295,7 @@ void Visualizer::visualizeHexacopter(
   if(pub_frames_.getNumSubscribers() > 0)
   {
     vk::output_helper::publishCameraMarker(
-        pub_frames_, "cam_pos", "cams", ros::Time().fromNSec(timestamp),
+        pub_frames_, kCameraFrame, "cams", ros::Time().fromNSec(timestamp),
         1, 0, 0.8, Vector3d(0.,0.,1.));
   }
 }
@@ -303,12 +305,12 @@ void Visualizer::visualizeQuadrocopter(
     const uint64_t timestamp)
 {
   vk::output_helper::publishTfTransform(
-        T_frame_world, ros::Time().fromNSec(timestamp), "cam_pos", kWorldFrame, br_);
+        T_frame_world, ros::Time().fromNSec(timestamp), kCameraFrame, kWorldFrame, br_);
 
   if(pub_frames_.getNumSubscribers() > 0)
   {
     vk::output_helper::publishQuadrocopterMarkers(
-          pub_frames_, "cam_pos", "cams", ros::Time().fromNSec(timestamp),
+          pub_frames_, kCameraFrame, "cams", ros::Time().fromNSec(timestamp),
           1, 0, 0.8, Vector3d(0.,0.,1.));
   }
 }
