@@ -60,6 +60,12 @@ Visualizer::Visualizer(
   , publish_seeds_uncertainty_(vk::param<bool>(pnh_, "publish_seeds_uncertainty", false))
   , trace_pointcloud_(vk::param<bool>(pnh_, "trace_pointcloud", false))
   , vis_scale_(vk::param<double>(pnh_, "publish_marker_scale", 1.2))
+  , gtsam_enabled_(vk::param<bool>(pnh_, "gtsam_enabled", false))
+  , last_timestamp_(0)
+  , keyframe_threshold_(500000000) // 1s
+  , previous_pose_(Eigen::Matrix4d::Identity())
+  , trigger_msg_(new cassie_msgs::CameraTrigger)
+  , pose_msg_(new cassie_msgs::Full6DofFactorRequest)
 {
   // Init ROS Marker Publishers
   pub_frames_ = pnh_.advertise<visualization_msgs::Marker>("keyframes", 10);
@@ -85,6 +91,12 @@ Visualizer::Visualizer(
   std::string states_trace_name(trace_dir_+"/trace_states.txt");
   ofs_states_.open(states_trace_name.c_str());
   ofs_states_.precision(10);
+
+  // Init gtsam related
+  if (gtsam_enabled_) {
+    trigger_msg_publisher_ = pnh_.advertise<cassie_msgs::CameraTrigger> ("trigger_msg", 10);
+    pose_msg_publisher_ = pnh_.advertise<cassie_msgs::Full6DofFactorRequest> ("pose_msg", 10);
+  }
 }
 
 void Visualizer::publishSvoInfo(
@@ -109,11 +121,47 @@ void Visualizer::publishSvoInfo(
   pub_info_.publish(msg_info);
 }
 
+void Visualizer::TransformationToEigenMatrix(
+  const Transformation& tf,
+  Eigen::Matrix4d& T)
+{
+  Eigen::Quaterniond q = tf.getRotation().toImplementation();
+  Eigen::Vector3d p = tf.getPosition();
+  T.block(0, 0, 3, 3) = q.toRotationMatrix();
+  T(0, 3) = p[0];
+  T(1, 3) = p[1];
+  T(2, 3) = p[2];
+}
+
 void Visualizer::publishImuPose(
     const Transformation& T_world_imu,
     const Eigen::Matrix<double, 6, 6> Covariance,
     const int64_t timestamp_nanoseconds)
 {
+  if (gtsam_enabled_) {
+    if (timestamp_nanoseconds - last_timestamp_ > keyframe_threshold_) {
+      // Publish trigger msg
+      trigger_msg_->header.stamp = ros::Time().fromNSec(timestamp_nanoseconds);
+      trigger_msg_publisher_.publish(trigger_msg_);
+      
+      Eigen::Matrix4d current_pose = Eigen::Matrix4d::Identity();
+      TransformationToEigenMatrix(T_world_imu, current_pose);
+
+      // Publish pose msg
+      if (last_timestamp_) {
+        pose_msg_->header1.stamp = ros::Time().fromNSec(last_timestamp_);
+        pose_msg_->header2.stamp = ros::Time().fromNSec(timestamp_nanoseconds);
+        Eigen::Matrix4d transform = previous_pose_.inverse() * current_pose;
+        common::eigen_ros_utils::SetPose(transform, pose_msg_->pose.pose);
+        pose_msg_publisher_.publish(pose_msg_);
+      }
+      
+      // Reset params
+      last_timestamp_ = timestamp_nanoseconds;
+      previous_pose_ = current_pose;
+    }
+  }
+
   if(pub_imu_pose_.getNumSubscribers() == 0)
     return;
   VLOG(100) << "Publish IMU Pose";
@@ -124,7 +172,7 @@ void Visualizer::publishImuPose(
         new geometry_msgs::PoseWithCovarianceStamped);
   msg_pose->header.seq = trace_id_;
   msg_pose->header.stamp = ros::Time().fromNSec(timestamp_nanoseconds);
-  msg_pose->header.frame_id = "/imu";
+  msg_pose->header.frame_id = "/world";
   msg_pose->pose.pose.position.x = p[0];
   msg_pose->pose.pose.position.y = p[1];
   msg_pose->pose.pose.position.z = p[2];

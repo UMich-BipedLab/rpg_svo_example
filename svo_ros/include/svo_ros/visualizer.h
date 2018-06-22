@@ -25,6 +25,13 @@
 #include <svo/global.h>
 #include <svo/common/types.h>
 
+// custom messages
+#include "cassie_msgs/CameraTrigger.h"
+#include "cassie_msgs/Full6DofFactorRequest.h"
+
+// local includes
+#include "common/eigen_ros_utils.h"
+
 namespace svo {
 
 // forward declarations
@@ -73,11 +80,25 @@ public:
   std::ofstream ofs_states_;
   std::ofstream ofs_pointcloud_;
 
+  // gtsam related
+  bool gtsam_enabled_;
+  int64_t last_timestamp_;
+  int64_t keyframe_threshold_;
+  Eigen::Matrix4d previous_pose_;
+  cassie_msgs::CameraTrigger::Ptr trigger_msg_;
+  cassie_msgs::Full6DofFactorRequest::Ptr pose_msg_;
+  ros::Publisher trigger_msg_publisher_;
+  ros::Publisher pose_msg_publisher_;
+
   Visualizer(const std::string& trace_dir,
              const ros::NodeHandle& nh_private,
              const size_t num_cameras);
 
   ~Visualizer() = default;
+
+
+  void TransformationToEigenMatrix(const Transformation& tf, Eigen::Matrix4d& T);
+
 
   void publishSvoInfo(
       const svo::FrameHandlerBase* const svo,

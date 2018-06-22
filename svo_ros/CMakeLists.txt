@@ -24,6 +24,9 @@ SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -fsee -fomit-frame-pointer -
 #############################################################################
 # Build library
 
+set(MKL_LIBRARY_DIRS /opt/intel/mkl/lib/intel64 /opt/intel/compilers_and_libraries_2018.3.222/linux/compiler/lib/intel64_lin)
+link_directories(${MKL_LIBRARY_DIRS})
+
 set(HEADERS
   include/svo_ros/svo_interface.h
   include/svo_ros/svo_factory.h

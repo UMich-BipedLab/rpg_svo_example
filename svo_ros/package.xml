@@ -34,6 +34,8 @@
   <depend>minkindr</depend>
   <depend>pcl_ros</depend>
   <depend>rpg_common</depend>
+  <depend>cassie_msgs</depend>
+  <depend>common</depend>
 
   <export>
     <nodelet plugin="${prefix}/svo_nodelet.xml"/>
