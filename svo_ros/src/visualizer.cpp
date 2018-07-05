@@ -99,6 +99,19 @@ Visualizer::Visualizer(
   }
 }
 
+void Visualizer::tfToEigenMatrix(
+    const Transformation& tf,
+    Eigen::Matrix4d& T)
+{
+  T = Eigen::Matrix4d::Identity();
+  Eigen::Quaterniond q = tf.getRotation().toImplementation();
+  Eigen::Vector3d p = tf.getPosition();
+  T.block(0, 0, 3, 3) = q.toRotationMatrix();
+  T(0, 3) = p[0];
+  T(1, 3) = p[1];
+  T(2, 3) = p[2];
+}
+
 void Visualizer::publishSvoInfo(
     const svo::FrameHandlerBase* const svo,
     const int64_t timestamp_nanoseconds)
@@ -121,31 +134,20 @@ void Visualizer::publishSvoInfo(
   pub_info_.publish(msg_info);
 }
 
-void Visualizer::TransformationToEigenMatrix(
-  const Transformation& tf,
-  Eigen::Matrix4d& T)
-{
-  Eigen::Quaterniond q = tf.getRotation().toImplementation();
-  Eigen::Vector3d p = tf.getPosition();
-  T.block(0, 0, 3, 3) = q.toRotationMatrix();
-  T(0, 3) = p[0];
-  T(1, 3) = p[1];
-  T(2, 3) = p[2];
-}
-
 void Visualizer::publishImuPose(
     const Transformation& T_world_imu,
     const Eigen::Matrix<double, 6, 6> Covariance,
     const int64_t timestamp_nanoseconds)
 {
+  // Publish pose msg as the transform between current and previous Imu poses
   if (gtsam_enabled_) {
     if (timestamp_nanoseconds - last_timestamp_ > keyframe_threshold_) {
       // Publish trigger msg
       trigger_msg_->header.stamp = ros::Time().fromNSec(timestamp_nanoseconds);
       trigger_msg_publisher_.publish(trigger_msg_);
-      
-      Eigen::Matrix4d current_pose = Eigen::Matrix4d::Identity();
-      TransformationToEigenMatrix(T_world_imu, current_pose);
+
+      Eigen::Matrix4d current_pose;
+      tfToEigenMatrix(T_world_imu, current_pose);
 
       // Publish pose msg
       if (last_timestamp_) {
@@ -155,7 +157,7 @@ void Visualizer::publishImuPose(
         common::eigen_ros_utils::SetPose(transform, pose_msg_->pose.pose);
         pose_msg_publisher_.publish(pose_msg_);
       }
-      
+
       // Reset params
       last_timestamp_ = timestamp_nanoseconds;
       previous_pose_ = current_pose;
@@ -192,7 +194,7 @@ void Visualizer::publishCameraPoses(
   vk::output_helper::publishTfTransform(
         frame_bundle->at(0)->T_cam_world(), ros::Time().fromNSec(timestamp_nanoseconds),
         kCameraFrame, kWorldFrame, br_);
-
+  
   for(size_t i = 0; i < frame_bundle->size(); ++i)
   {
     if(pub_cam_poses_.at(i).getNumSubscribers() == 0)

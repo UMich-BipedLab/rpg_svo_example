@@ -97,8 +97,9 @@ public:
   ~Visualizer() = default;
 
 
-  void TransformationToEigenMatrix(const Transformation& tf, Eigen::Matrix4d& T);
-
+  void tfToEigenMatrix(
+      const Transformation& tf,
+      Eigen::Matrix4d& T);
 
   void publishSvoInfo(
       const svo::FrameHandlerBase* const svo,
